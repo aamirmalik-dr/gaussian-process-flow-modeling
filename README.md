@@ -1,90 +1,119 @@
 # Gaussian process flow modeling
 
-Gaussian process regression and particle advection over a 2D velocity field, an
-ocean-current-style spatiotemporal modeling demo that is fully reproducible from
-a synthetic field with no external dataset.
+![GP posterior uncertainty over the reconstructed flow](results/uncertainty_map.png)
 
-The field is constructed from a stream function, so its velocity is the analytic
-curl and the flow is divergence free (incompressible) by construction. A Gaussian
-process then reconstructs the field from sparse noisy samples, with a posterior
-uncertainty map, and a fourth-order Runge-Kutta integrator advects particles
-through the field.
+The image above is the whole project in one frame. A divergence-free velocity
+field is reconstructed from a couple of hundred scattered, noisy measurements by
+a Gaussian process. The white streamlines are the reconstructed flow. The
+background is the posterior standard deviation, the model's own estimate of how
+unsure it is: dark where measurements are dense, bright along the sparse bottom
+edge where the reconstruction is openly guessing. The cyan dots are the
+observations that anchor it. A Gaussian process does not just draw a field, it
+tells you where to trust it.
 
-## What it does
+## The gallery
 
-- Builds a divergence-free velocity field from a sum of stream-function modes
-  (`field.py`), with an analytic off-grid sampler and a numerical divergence
-  check.
-- Reconstructs the two velocity components with independent Gaussian processes
-  (RBF plus white-noise kernels), returning mean and standard deviation
-  (`gp.py`).
-- Advects particles with RK4 and bilinear velocity interpolation, with boundary
-  clamping so drifting particles stay defined (`advection.py`).
-- Reports reconstruction RMSE and the field's residual divergence, and writes a
-  trajectory figure and an uncertainty map (`scripts/simulate.py`).
+| Hero: uncertainty map | Field and trajectories |
+|---|---|
+| ![uncertainty](results/uncertainty_map.png) | ![trajectories](results/field_and_trajectories.png) |
+| Posterior standard deviation with reconstructed streamlines and observation sites. | The true field with a line of particles advected by fourth-order Runge-Kutta. |
 
-## What it does not do
+## Measured results
 
-- The field is synthetic. `scripts/download_data.py` documents how to substitute
-  a real public surface-current product (OSCAR or HYCOM), but no live ocean
-  archive is fetched, both to keep the demo reproducible and because those
-  archives are large and access can be unreliable.
-- The GP uses a stationary RBF kernel; it does not model anisotropy or
-  non-stationarity in the flow.
-- Advection is kinematic (particles follow the field); there is no dynamics
-  feedback.
+Produced this session by `scripts/simulate.py --n-obs 200 --grid 45` on the
+synthetic field, seed 0, 140 training observations at noise 0.05, held out
+against the noise-free analytic ground truth. The full metrics file is
+`results/metrics.json`.
 
-## Install
+| Quantity | Value |
+|----------|-------|
+| Held-out reconstruction RMSE (vs ground truth) | 0.232 |
+| Full-grid reconstruction RMSE | 0.277 |
+| Held-out mean NLPD (lower is better) | -1.21 |
+| Coverage of the 1-sigma band (nominal 0.68) | 0.83 |
+| Coverage of the 2-sigma band (nominal 0.95) | 1.00 |
+| Log marginal likelihood (u + v components) | 101.2 |
+| Residual divergence as a fraction of gradient magnitude | 0.5% |
+
+The RMSE is well below the spread of the velocities, so the mean field is
+accurate. The coverage numbers run a little conservative, wider error bars than
+strictly needed, which is the safe direction for an uncertainty estimate to err
+on this small a sample. The residual divergence is finite-difference error in the
+numerical check, not a real source or sink: the stream-function construction is
+incompressible analytically, and a test confirms the residual shrinks as the grid
+is refined.
+
+The committed model artifact `results/gp_flow_model.joblib` (about 330 KB) is the
+fitted GP, ready for inference without refitting.
+
+## Start here: the narrated notebook
+
+`notebooks/demo.ipynb` is the guided entry point. It is executed and committed
+with its outputs, and it walks through the whole story: the stream-function field,
+the GP kernel, the posterior mean and variance, the hero uncertainty map, and the
+Runge-Kutta advection, with the derivations kept short and pointed at
+`docs/method.md`.
+
+## Offline quickstart
+
+No network, no field regeneration. Fit the GP on the committed sample and print
+accuracy and calibration:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+python examples/reconstruct_from_sample.py
 ```
 
-## Run
+To regenerate the hero figure, the metrics file, and the model artifact:
 
 ```bash
 python scripts/simulate.py --n-obs 200 --grid 45
 ```
 
-`notebooks/demo.ipynb` is a short executed walkthrough.
+## How it works
 
-## Results
+- A divergence-free field is built as the curl of a sinusoidal stream function,
+  so `du/dx + dv/dy = 0` holds by construction and velocities are sampled
+  analytically off grid (`flowgp.field`).
+- Each velocity component is reconstructed by an independent Gaussian process with
+  an RBF plus white-noise kernel, returning posterior mean and standard deviation
+  (`flowgp.gp`).
+- Accuracy and calibration are scored with RMSE, negative log predictive density,
+  and k-sigma coverage (`flowgp.metrics`).
+- Particles are advected with fourth-order Runge-Kutta over a bilinear velocity
+  interpolant, and any callable (including the GP posterior mean) can play the
+  velocity role (`flowgp.advection`).
 
-Synthetic field on a 45 by 45 grid, 200 observations at noise level 0.05, 70/30
-train/test split, seed 0. Produced by `scripts/simulate.py` in this repository.
+The math behind each of these lives in [docs/method.md](docs/method.md).
 
-| Quantity | Value |
-|----------|-------|
-| Residual divergence (mean absolute, interior) | 1.46e-02 |
-| Residual divergence as a fraction of the mean derivative magnitude | 0.5% |
-| GP reconstruction RMSE, held-out points (140 train obs) | 0.2440 |
-| GP reconstruction RMSE, full grid | 0.2765 |
+## Scope
 
-The field's residual divergence is only about half a percent of the size of its
-velocity gradients, confirming numerically what the stream-function construction
-guarantees analytically: the flow is incompressible, and the small residual is
-finite-difference error that shrinks as the grid is refined (a test checks this).
-The Gaussian process reconstructs the field from a couple of hundred noisy
-samples with an RMSE well below the spread of the velocities, and its predictive
-standard deviation grows away from the observations, exactly where a
-reconstruction should be least certain.
+The field is synthetic. `scripts/download_data.py` documents how to substitute a
+real public surface-current product (OSCAR or HYCOM), but no live ocean archive is
+fetched, both to keep the demo reproducible and because those archives are large
+and access can be unreliable. The GP uses a stationary RBF kernel, so it does not
+model anisotropy or non-stationarity, and advection is kinematic, with no dynamics
+feedback.
 
 ## Layout
 
 ```
-src/flowgp/     field, gp, advection, data
-scripts/        simulate.py, download_data.py
-notebooks/      demo.ipynb (executed)
-tests/          pytest suite: divergence, GP reconstruction, RK4, advection
-data/           gitignored; see data/README.md
+src/flowgp/     field, gp, metrics, advection, persistence, data
+notebooks/      demo.ipynb (executed, the entry point)
+scripts/        simulate.py, make_sample.py, download_data.py
+examples/       reconstruct_from_sample.py (offline quickstart)
+docs/           method.md (derivations)
+data/           sample_observations.csv (committed sample) + README
+results/        hero figure, trajectory figure, metrics.json, model artifact
+tests/          pytest suite: divergence, GP, calibration, RK4, persistence
 ```
 
 ## Tests
 
 ```bash
 pytest -q
-ruff check src tests scripts
+ruff check src tests scripts examples
 ```
 
 ## License
