@@ -58,3 +58,25 @@ class GPFieldModel:
         """Root mean squared error of the predicted velocity vectors."""
         pred = self.predict(points)
         return float(np.sqrt(np.mean(np.sum((pred - velocities) ** 2, axis=1))))
+
+    def log_marginal_likelihood(self) -> float:
+        """Sum of the two component log marginal likelihoods at the fitted kernel.
+
+        The marginal likelihood is what the GP maximizes when it tunes its kernel
+        hyperparameters, so it summarizes how well the fitted model explains the
+        training data. The two velocity components are independent regressors, so
+        their log marginal likelihoods add.
+
+        Raises:
+            RuntimeError: If called before :meth:`fit`.
+        """
+        if not self.fitted:
+            raise RuntimeError("GPFieldModel must be fit before log_marginal_likelihood")
+        return float(
+            self._gp_u.log_marginal_likelihood_value_ + self._gp_v.log_marginal_likelihood_value_
+        )
+
+    @property
+    def kernel_(self) -> tuple:
+        """The two fitted kernels ``(u_kernel, v_kernel)`` after optimization."""
+        return self._gp_u.kernel_, self._gp_v.kernel_

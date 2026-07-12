@@ -15,6 +15,8 @@ from flowgp.field import (
     synthetic_flow_field,
 )
 from flowgp.gp import GPFieldModel
+from flowgp.metrics import coverage, nlpd, rmse
+from flowgp.persistence import load_model, save_model
 
 __all__ = [
     "VelocityField",
@@ -25,6 +27,11 @@ __all__ = [
     "GPFieldModel",
     "advect_particles",
     "rk4_step",
+    "rmse",
+    "nlpd",
+    "coverage",
+    "save_model",
+    "load_model",
 ]
 
 __version__ = "0.1.0"

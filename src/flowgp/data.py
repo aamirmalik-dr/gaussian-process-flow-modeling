@@ -24,9 +24,7 @@ def make_observations(
     rng = np.random.default_rng(seed)
     x_lo, x_hi = field.xs[0], field.xs[-1]
     y_lo, y_hi = field.ys[0], field.ys[-1]
-    points = np.column_stack(
-        [rng.uniform(x_lo, x_hi, n_obs), rng.uniform(y_lo, y_hi, n_obs)]
-    )
+    points = np.column_stack([rng.uniform(x_lo, x_hi, n_obs), rng.uniform(y_lo, y_hi, n_obs)])
     velocities = sample_velocity(field, points)
     velocities = velocities + rng.normal(0, noise, velocities.shape)
     return points, velocities
