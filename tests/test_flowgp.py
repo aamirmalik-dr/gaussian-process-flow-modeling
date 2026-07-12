@@ -1,9 +1,12 @@
 import numpy as np
+import pytest
 
 from flowgp.advection import advect_particles, make_interpolator, rk4_step
 from flowgp.data import make_observations, train_test_split_points
 from flowgp.field import divergence, sample_velocity, synthetic_flow_field
 from flowgp.gp import GPFieldModel
+from flowgp.metrics import coverage, nlpd, rmse
+from flowgp.persistence import load_model, save_model
 
 
 def _mean_abs_interior_div(field) -> float:
@@ -85,3 +88,57 @@ def test_interpolator_matches_grid_nodes():
     pt = np.array([[field.xs[5], field.ys[7]]])
     out = vel(pt)[0]
     assert np.allclose(out[0], field.u[7, 5], atol=1e-6)
+
+
+def test_rmse_zero_on_exact_match():
+    a = np.array([[1.0, 2.0], [3.0, 4.0]])
+    assert rmse(a, a) == 0.0
+
+
+def test_nlpd_lower_for_better_calibrated_std():
+    # A model whose std matches the true error scale should score a lower
+    # (better) NLPD than an over-confident model with tiny std.
+    rng = np.random.default_rng(0)
+    target = rng.normal(size=(500, 2))
+    pred = np.zeros_like(target)
+    honest = nlpd(pred, np.ones_like(target), target)
+    overconfident = nlpd(pred, np.full_like(target, 0.1), target)
+    assert honest < overconfident
+
+
+def test_coverage_matches_nominal_for_calibrated_gaussian():
+    rng = np.random.default_rng(1)
+    target = rng.normal(size=(20000, 2))
+    pred = np.zeros_like(target)
+    std = np.ones_like(target)
+    assert coverage(pred, std, target, k=1.0) == pytest.approx(0.683, abs=0.02)
+    assert coverage(pred, std, target, k=2.0) == pytest.approx(0.954, abs=0.01)
+
+
+def test_gp_log_marginal_likelihood_available_after_fit():
+    field = synthetic_flow_field(n=30, seed=0)
+    points, velocities = make_observations(field, n_obs=80, seed=0)
+    gp = GPFieldModel().fit(points, velocities)
+    lml = gp.log_marginal_likelihood()
+    assert np.isfinite(lml)
+
+
+def test_gp_log_marginal_likelihood_requires_fit():
+    with pytest.raises(RuntimeError):
+        GPFieldModel().log_marginal_likelihood()
+
+
+def test_save_and_load_model_round_trip(tmp_path):
+    field = synthetic_flow_field(n=30, seed=0)
+    points, velocities = make_observations(field, n_obs=80, seed=0)
+    gp = GPFieldModel().fit(points, velocities)
+    path = save_model(gp, tmp_path / "model.joblib")
+    loaded = load_model(path)
+    a = gp.predict(points[:5])
+    b = loaded.predict(points[:5])
+    assert np.allclose(a, b)
+
+
+def test_save_unfitted_model_raises(tmp_path):
+    with pytest.raises(RuntimeError):
+        save_model(GPFieldModel(), tmp_path / "x.joblib")
