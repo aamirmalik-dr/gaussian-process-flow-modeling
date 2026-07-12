@@ -16,10 +16,20 @@ env/
 .coverage
 htmlcov/
 
-# Data and generated artifacts (fetched or produced locally, never committed)
+# Data: ignore everything except the small committed sample and its note.
 data/*
 !data/README.md
-results/
+!data/sample_observations.csv
+
+# Generated artifacts: ignore the results directory, but track the committed
+# hero figure, secondary figure, metrics file, and the small fitted model.
+results/*
+!results/uncertainty_map.png
+!results/field_and_trajectories.png
+!results/metrics.json
+!results/gp_flow_model.joblib
+
+# Large checkpoints are never committed.
 *.pt
 *.pth
 *.pth.tar

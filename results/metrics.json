@@ -1,0 +1,16 @@
+{
+  "grid": 45,
+  "n_obs": 200,
+  "n_train": 140,
+  "n_test": 60,
+  "noise": 0.05,
+  "seed": 0,
+  "mean_abs_divergence_interior": 0.01456,
+  "divergence_fraction_of_gradient": 0.00469,
+  "test_rmse": 0.231939,
+  "grid_rmse": 0.276548,
+  "test_nlpd": -1.207888,
+  "coverage_1sigma": 0.825,
+  "coverage_2sigma": 1.0,
+  "log_marginal_likelihood": 101.1953
+}
