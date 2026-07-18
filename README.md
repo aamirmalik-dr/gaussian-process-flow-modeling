@@ -1,7 +1,5 @@
 # gaussian-process-flow-modeling
 
-*Origin: Originally developed for the Data Analysis (MITx 6.419x) online course; refactored and open-sourced in July 2026.*
-
 ![GP posterior uncertainty over the reconstructed flow](results/uncertainty_map.png)
 
 The image above is the whole project in one frame. A divergence-free velocity
@@ -126,3 +124,7 @@ MIT, see [LICENSE](LICENSE).
 
 Aamir Malik. [GitHub](https://github.com/aamirmalik-dr) ·
 [LinkedIn](https://linkedin.com/in/dr-aamirmalik)
+
+---
+
+*Refactored and engineered into this tested, reproducible project in July 2026, reimplemented from scratch on public data. The underlying methods were first studied in the Data Analysis (MITx 6.419x) course.*
