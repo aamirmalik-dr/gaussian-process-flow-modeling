@@ -1,4 +1,4 @@
-# Gaussian process flow modeling
+# gaussian-process-flow-modeling
 
 *Origin: Originally developed for the Data Analysis (MITx 6.419x) online course; refactored and open-sourced in July 2026.*
 
